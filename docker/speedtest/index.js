@@ -6,11 +6,19 @@ const bitToMbps = bit => (bit / 1000 / 1000) * 8;
 
 const log = (message, severity = "Info") =>
   console.log(`[${severity.toUpperCase()}][${new Date()}] ${message}`);
+  
+const serversList = {
+	17947: "mts Belgrade", // speedtest.mts.rs - 212.200.230.229 - wan1
+	4792: "Vip mobile", // speedtest.vipmobile.rs - 77.243.16.48 - wan2
+	20191: "mts Nis" // speedtest2.mts.rs - 212.200.230.251 - wan3
+};
 
-const getSpeedMetrics = async () => {
+const getSpeedMetrics = async (serverId) => {
   const { stdout } = await execa("speedtest", [
     "--accept-license",
     "--accept-gdpr",
+    "-s",
+    serverId,
     "-f",
     "json"
   ]);
@@ -22,10 +30,10 @@ const getSpeedMetrics = async () => {
   };
 };
 
-const pushToInflux = async (influx, metrics) => {
+const pushToInflux = async (serverId, influx, metrics) => {
   const points = Object.entries(metrics).map(([measurement, value]) => ({
     measurement,
-    tags: { host: process.env.SPEEDTEST_HOST },
+    tags: { host: serversList[serverId] },
     fields: { value }
   }));
 
@@ -40,12 +48,15 @@ const pushToInflux = async (influx, metrics) => {
     });
 
     while (true) {
-      log("Starting speedtest...");
-      const speedMetrics = await getSpeedMetrics();
-      log(
-        `Speedtest results - Download: ${speedMetrics.download}, Upload: ${speedMetrics.upload}, Ping: ${speedMetrics.ping}`
-      );
-      await pushToInflux(influx, speedMetrics);
+	  Object.keys(serversList).forEach(function (serverId) { 
+        log(`Starting speedtest for server ${serverId}...`);
+        const speedMetrics = await getSpeedMetrics(serverId);
+        log(
+	       `Speedtest results from server ${serverId} - Download: ${speedMetrics.download}, Upload: ${speedMetrics.upload}, Ping: ${speedMetrics.ping}`
+        );
+        await pushToInflux(serverId, influx, speedMetrics);
+		await delay(1000)
+      }
 
       log(`Sleeping for ${process.env.SPEEDTEST_INTERVAL} seconds...`);
       await delay(process.env.SPEEDTEST_INTERVAL * 1000);
