@@ -14,7 +14,7 @@ RUN npm ci
 
 FROM alpine as prod-stage
 RUN apk add --no-cache nodejs
-LABEL maintainer="Jonas Friedmann <j@frd.mn>"
+LABEL maintainer="Milan Kragujevic <milankragujevic@gmail.com>"
 
 WORKDIR /usr/src/app
 
